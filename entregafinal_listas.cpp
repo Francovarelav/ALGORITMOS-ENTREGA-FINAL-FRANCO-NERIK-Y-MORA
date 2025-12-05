@@ -1,14 +1,11 @@
 /*
-Grafo Dirigido con Listas de Adyacencia (Implementación Dinámica)
-Este programa implementa un grafo donde:
-- Se usan Listas Enlazadas manualmente (sin std::vector) para las conexiones.
-- Los nodos (Platillos y Restaurantes) tienen IDs únicos.
-- La relación es DIRIGIDA: Platillo -> Restaurante (un platillo "apunta" a los restaurantes donde se vende).
-- Se utiliza BFS para recorrer las conexiones del platillo.
-
-Estructura:
-- Grafo representado como un arreglo de punteros a Listas de Adyacencia.
-- Búsqueda de índices por nombre.
+GRAFO BIPARTITO CON LISTAS DE ADYACENCIA
+Este programa implementa un grafo bipartito ponderado donde:
+- Se lee el archivo "bitacora.txt" (o "orders.txt") y almacena los datos en una lista de adyacencia organizada por platillo
+- Grafo bipartito: Nodos de restaurantes y nodos de platillos
+- Grafo ponderado: Las aristas tienen peso (frecuencia de pedidos)
+- La relación es DIRIGIDA: Platillo -> Restaurante (un platillo "apunta" a los restaurantes donde se vende)
+- Se utiliza BFS para mostrar cómo un platillo se reparte en diferentes restaurantes
 
 Autores: Equipo SProblema 5
  - Franco Varela Villegas - A01199186
@@ -22,6 +19,8 @@ Fecha: 02/12/2025
 #include <fstream>
 #include <cstring>
 #include <queue>
+#include <algorithm>
+#include <string>
 
 using namespace std;
 
@@ -169,11 +168,18 @@ void procesarLinea(const char* linea) {
 
 // --- ALGORITMO BFS ---
 
+// BFS: Muestra cómo un platillo se reparte en diferentes restaurantes
 void ejecutarBFS(int nodoInicio) {
     if (nodoInicio < 0 || nodoInicio >= numNodos) return;
+    
+    if (grafo[nodoInicio].tipo != 'P') {
+        cout << "Error: El BFS debe iniciarse desde un platillo." << endl;
+        return;
+    }
 
-    cout << "\n=== RECORRIDO BFS (Niveles) ===" << endl;
-    cout << "Nodo Raíz (ID " << nodoInicio << "): " << grafo[nodoInicio].nombre << " [" << grafo[nodoInicio].tipo << "]" << endl;
+    cout << "\n=== BÚSQUEDA BFS: DISTRIBUCIÓN DEL PLATILLO EN RESTAURANTES ===" << endl;
+    cout << "Platillo: " << grafo[nodoInicio].nombre << endl;
+    cout << string(60, '-') << endl;
 
     bool visitado[MAX_NODOS] = {false};
     queue<int> cola;
@@ -182,32 +188,272 @@ void ejecutarBFS(int nodoInicio) {
     cola.push(nodoInicio);
 
     int totalPedidos = 0;
+    int numRestaurantes = 0;
     
-    if (!cola.empty()) {
-        int actual = cola.front();
-        cola.pop();
-        
-        cout << "Conexiones directas (Vecinos):" << endl;
-        
-        NodoAdyacencia* temp = grafo[actual].cabezaLista;
-        while (temp != nullptr) {
-            int vecinoId = temp->idDestino;
-            if (!visitado[vecinoId]) {
-                cout << "   -> " << grafo[vecinoId].nombre 
-                     << " (ID: " << vecinoId << ", Tipo: " << grafo[vecinoId].tipo << ")"
-                     << " [Pedidos: " << temp->peso << "]" << endl;
-                
-                totalPedidos += temp->peso;
-                visitado[vecinoId] = true;
-                cola.push(vecinoId);
-            }
-            temp = temp->siguiente;
+    int actual = cola.front();
+    cola.pop();
+    
+    cout << "\nRestaurantes donde se ofrece este platillo:" << endl;
+    cout << string(60, '-') << endl;
+    
+    NodoAdyacencia* temp = grafo[actual].cabezaLista;
+    while (temp != nullptr) {
+        int vecinoId = temp->idDestino;
+        if (!visitado[vecinoId] && grafo[vecinoId].tipo == 'R') {
+            numRestaurantes++;
+            totalPedidos += temp->peso;
+            
+            cout << "[" << numRestaurantes << "] " << grafo[vecinoId].nombre 
+                 << " - Pedidos: " << temp->peso << endl;
+            
+            visitado[vecinoId] = true;
+            cola.push(vecinoId);
+        }
+        temp = temp->siguiente;
+    }
+    
+    cout << string(60, '-') << endl;
+    cout << "Total de restaurantes: " << numRestaurantes << endl;
+    cout << "Total de pedidos: " << totalPedidos << endl;
+    cout << string(60, '=') << endl;
+}
+
+// --- FUNCIONES DE VISUALIZACIÓN MEJORADAS ---
+
+// Genera y muestra la matriz de adyacencia
+void mostrarMatrizAdyacencia() {
+    cout << "\n=== MATRIZ DE ADYACENCIA ===" << endl;
+    
+    int numPlatillos = 0, numRestaurantes = 0;
+    int indicesPlatillos[MAX_NODOS];
+    int indicesRestaurantes[MAX_NODOS];
+    
+    for (int i = 0; i < numNodos; i++) {
+        if (grafo[i].tipo == 'P') {
+            indicesPlatillos[numPlatillos++] = i;
+        } else if (grafo[i].tipo == 'R') {
+            indicesRestaurantes[numRestaurantes++] = i;
         }
     }
     
-    cout << "--------------------------------" << endl;
-    cout << "Total de frecuencia en conexiones directas: " << totalPedidos << endl;
+    if (numPlatillos == 0 || numRestaurantes == 0) {
+        cout << "No hay suficientes datos." << endl;
+        return;
+    }
+    
+    cout << "Generando matriz completa..." << endl;
+    cout << "Total Platillos: " << numPlatillos << ", Total Restaurantes: " << numRestaurantes << endl;
+    
+    // Guardar matriz completa en archivo
+    ofstream archivo("matriz_adyacencia.txt");
+    if (archivo.is_open()) {
+        archivo << "MATRIZ DE ADYACENCIA" << endl;
+        archivo << "Platillos: " << numPlatillos << ", Restaurantes: " << numRestaurantes << "\n" << endl;
+        
+        archivo << "PLATILLO";
+        for (int j = 0; j < numRestaurantes; j++) {
+            archivo << "\t" << grafo[indicesRestaurantes[j]].nombre;
+        }
+        archivo << endl;
+        
+        for (int i = 0; i < numPlatillos; i++) {
+            int idPlatillo = indicesPlatillos[i];
+            archivo << grafo[idPlatillo].nombre;
+            
+            for (int j = 0; j < numRestaurantes; j++) {
+                int idRestaurante = indicesRestaurantes[j];
+                NodoAdyacencia* temp = grafo[idPlatillo].cabezaLista;
+                int peso = 0;
+                
+                while (temp != nullptr) {
+                    if (temp->idDestino == idRestaurante) {
+                        peso = temp->peso;
+                        break;
+                    }
+                    temp = temp->siguiente;
+                }
+                
+                archivo << "\t" << peso;
+            }
+            archivo << endl;
+        }
+        archivo.close();
+        cout << "Matriz guardada en 'matriz_adyacencia.txt'" << endl;
+    }
+}
+
+// Estructura para ordenar restaurantes por solicitudes
+struct RestauranteInfo {
+    int id;
+    int totalSolicitudes;
+    
+    RestauranteInfo() {
+        id = -1;
+        totalSolicitudes = 0;
+    }
+    
+    RestauranteInfo(int _id, int _solicitudes) {
+        id = _id;
+        totalSolicitudes = _solicitudes;
+    }
+};
+
+// Encuentra y muestra los restaurantes con mayor cantidad de solicitudes
+void restaurantesConMasSolicitudes() {
+    cout << "\n=== RESTAURANTES CON MAYOR CANTIDAD DE SOLICITUDES ===" << endl;
+    
+    RestauranteInfo restaurantes[MAX_NODOS];
+    int numRestaurantes = 0;
+    
+    // Inicializar restaurantes
+    for (int i = 0; i < numNodos; i++) {
+        if (grafo[i].tipo == 'R') {
+            restaurantes[numRestaurantes].id = i;
+            restaurantes[numRestaurantes].totalSolicitudes = 0;
+            numRestaurantes++;
+        }
+    }
+    
+    // Sumar pedidos por restaurante
+    for (int i = 0; i < numNodos; i++) {
+        if (grafo[i].tipo == 'P') {
+            NodoAdyacencia* temp = grafo[i].cabezaLista;
+            while (temp != nullptr) {
+                for (int j = 0; j < numRestaurantes; j++) {
+                    if (restaurantes[j].id == temp->idDestino) {
+                        restaurantes[j].totalSolicitudes += temp->peso;
+                        break;
+                    }
+                }
+                temp = temp->siguiente;
+            }
+        }
+    }
+    
+    // Ordenar (bubble sort)
+    for (int i = 0; i < numRestaurantes - 1; i++) {
+        for (int j = 0; j < numRestaurantes - i - 1; j++) {
+            if (restaurantes[j].totalSolicitudes < restaurantes[j + 1].totalSolicitudes) {
+                RestauranteInfo temp = restaurantes[j];
+                restaurantes[j] = restaurantes[j + 1];
+                restaurantes[j + 1] = temp;
+            }
+        }
+    }
+    
+    // Mostrar top 10
+    int topN = min(10, numRestaurantes);
+    cout << "\nTop " << topN << " restaurantes:\n" << endl;
+    
+    for (int i = 0; i < topN; i++) {
+        cout << (i + 1) << ". " << grafo[restaurantes[i].id].nombre
+             << " - Solicitudes: " << restaurantes[i].totalSolicitudes << endl;
+    }
+    
+    // Guardar en archivo
+    ofstream archivo("restaurantes_solicitudes.txt");
+    if (archivo.is_open()) {
+        for (int i = 0; i < numRestaurantes; i++) {
+            archivo << (i + 1) << ". " << grafo[restaurantes[i].id].nombre 
+                    << " - Solicitudes: " << restaurantes[i].totalSolicitudes << endl;
+        }
+        archivo.close();
+        cout << "\nLista completa guardada en 'restaurantes_solicitudes.txt'" << endl;
+    }
+    
     cout << "================================" << endl;
+}
+
+// Muestra estadísticas del grafo
+void mostrarEstadisticas() {
+    cout << "\n=== ESTADÍSTICAS DEL GRAFO BIPARTITO ===" << endl;
+    
+    int numPlatillos = 0, numRestaurantes = 0;
+    int totalConexiones = 0;
+    int totalPedidos = 0;
+    
+    for (int i = 0; i < numNodos; i++) {
+        if (grafo[i].tipo == 'P') {
+            numPlatillos++;
+            NodoAdyacencia* temp = grafo[i].cabezaLista;
+            while (temp != nullptr) {
+                totalConexiones++;
+                totalPedidos += temp->peso;
+                temp = temp->siguiente;
+            }
+        } else if (grafo[i].tipo == 'R') {
+            numRestaurantes++;
+        }
+    }
+    
+    cout << "Total de nodos: " << numNodos << endl;
+    cout << "  - Platillos: " << numPlatillos << endl;
+    cout << "  - Restaurantes: " << numRestaurantes << endl;
+    cout << "Total de conexiones: " << totalConexiones << endl;
+    cout << "Total de pedidos: " << totalPedidos << endl;
+    cout << "================================" << endl;
+}
+
+void listarRestaurantes() {
+    cout << "\n=== LISTA DE RESTAURANTES ===" << endl;
+    int contador = 0;
+    for (int i = 0; i < numNodos; i++) {
+        if (grafo[i].tipo == 'R') {
+            cout << "- " << grafo[i].nombre << endl;
+            contador++;
+        }
+    }
+    cout << "Total: " << contador << " restaurantes" << endl;
+}
+
+// Muestra todas las conexiones del grafo
+void mostrarTodasLasConexiones() {
+    cout << "\n=== TODAS LAS CONEXIONES DEL GRAFO ===" << endl;
+    cout << "Mostrando primeras 30 conexiones...\n" << endl;
+    
+    int contador = 0;
+    int limite = 30;
+    
+    for (int i = 0; i < numNodos && contador < limite; i++) {
+        if (grafo[i].tipo == 'P') {
+            NodoAdyacencia* temp = grafo[i].cabezaLista;
+            if (temp != nullptr) {
+                cout << grafo[i].nombre << " ->" << endl;
+                while (temp != nullptr && contador < limite) {
+                    cout << "    " << grafo[temp->idDestino].nombre 
+                         << " [Pedidos: " << temp->peso << "]" << endl;
+                    contador++;
+                    temp = temp->siguiente;
+                }
+                cout << endl;
+            }
+        }
+    }
+    
+    if (contador >= limite) {
+        cout << "... (mostrando solo primeros " << limite << ")" << endl;
+    }
+    
+    // Guardar todas en archivo
+    ofstream archivo("todas_conexiones.txt");
+    if (archivo.is_open()) {
+        for (int i = 0; i < numNodos; i++) {
+            if (grafo[i].tipo == 'P') {
+                NodoAdyacencia* temp = grafo[i].cabezaLista;
+                if (temp != nullptr) {
+                    archivo << grafo[i].nombre << " ->" << endl;
+                    while (temp != nullptr) {
+                        archivo << "    " << grafo[temp->idDestino].nombre 
+                                << " [Pedidos: " << temp->peso << "]" << endl;
+                        temp = temp->siguiente;
+                    }
+                    archivo << endl;
+                }
+            }
+        }
+        archivo.close();
+        cout << "Todas las conexiones guardadas en 'todas_conexiones.txt'" << endl;
+    }
 }
 
 // --- INTERFAZ ---
@@ -234,7 +480,7 @@ void buscarPlatillo() {
 }
 
 void listarPlatillos() {
-    cout << "\n--- LISTA DE PLATILLOS REGISTRADOS ---" << endl;
+    cout << "\n=== LISTA DE PLATILLOS ===" << endl;
     int contador = 0;
     for (int i = 0; i < numNodos; i++) {
         if (grafo[i].tipo == 'P') {
@@ -242,30 +488,49 @@ void listarPlatillos() {
             contador++;
         }
     }
-    cout << "Total: " << contador << " platillos." << endl;
+    cout << "Total: " << contador << " platillos" << endl;
 }
 
 int main() {
-    ifstream archivo("orders.txt");
+    // Intentar abrir bitacora.txt, si no existe, intentar orders.txt
+    ifstream archivo("bitacora.txt");
     if (!archivo.is_open()) {
-        cout << "Error: No se pudo abrir orders.txt" << endl;
-        return 1;
+        archivo.open("orders.txt");
+        if (!archivo.is_open()) {
+            cout << "Error: No se pudo abrir 'bitacora.txt' ni 'orders.txt'" << endl;
+            return 1;
+        } else {
+            cout << "Nota: Usando 'orders.txt' (no se encontró 'bitacora.txt')" << endl;
+        }
+    } else {
+        cout << "Leyendo archivo 'bitacora.txt'..." << endl;
     }
 
-    cout << "Construyendo grafo con Listas de Adyacencia..." << endl;
+    cout << "\nConstruyendo grafo bipartito con listas de adyacencia." << endl;
+    cout << "Organizando datos por platillo." << endl;
+    
     char buffer[MAX_NOMBRE];
+    int lineasLeidas = 0;
     while (archivo.getline(buffer, MAX_NOMBRE)) {
         procesarLinea(buffer);
+        lineasLeidas++;
     }
     archivo.close();
-    cout << "Grafo construido. Nodos totales: " << numNodos << endl;
+    
+    cout << "✓ Archivo procesado: " << lineasLeidas << " líneas leídas" << endl;
+    cout << "✓ Grafo bipartito construido: " << numNodos << " nodos totales" << endl;
 
     int opcion = 0;
     while (true) {
-        cout << "\n=== SISTEMA DE GRAFOS (IMPLEMENTACIÓN LISTAS ENLAZADAS) ===" << endl;
+        cout << "\n=== MENÚ PRINCIPAL ===" << endl;
         cout << "1. Ver lista de platillos" << endl;
-        cout << "2. Buscar platillo (BFS)" << endl;
-        cout << "3. Salir" << endl;
+        cout << "2. Ver lista de restaurantes" << endl;
+        cout << "3. Buscar platillo (BFS)" << endl;
+        cout << "4. Restaurantes con mayor cantidad de solicitudes" << endl;
+        cout << "5. Mostrar matriz de adyacencia" << endl;
+        cout << "6. Mostrar estadísticas del grafo" << endl;
+        cout << "7. Mostrar todas las conexiones" << endl;
+        cout << "8. Salir" << endl;
         cout << "Seleccione: ";
         
         if (!(cin >> opcion)) {
@@ -276,12 +541,17 @@ int main() {
         }
         cin.ignore(); 
 
-        if (opcion == 3) break;
+        if (opcion == 8) break;
 
         switch(opcion) {
             case 1: listarPlatillos(); break;
-            case 2: buscarPlatillo(); break;
-            default: cout << "Opción no válida." << endl;
+            case 2: listarRestaurantes(); break;
+            case 3: buscarPlatillo(); break;
+            case 4: restaurantesConMasSolicitudes(); break;
+            case 5: mostrarMatrizAdyacencia(); break;
+            case 6: mostrarEstadisticas(); break;
+            case 7: mostrarTodasLasConexiones(); break;
+            default: cout << "Opción no válida. Por favor seleccione un número del 1 al 8." << endl;
         }
     }
 
